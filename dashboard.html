@@ -9,23 +9,17 @@
         body { font-family: 'Microsoft JhengHei', sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
         .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px 30px; color: white; display: flex; justify-content: space-between; align-items: center; }
         .container { max-width: 800px; margin: 30px auto; padding: 20px; }
-        
         .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .card h2 { margin-top: 0; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px; }
-        
         .form-group { margin-bottom: 15px; }
         .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         textarea.form-control { height: 100px; resize: vertical; }
-        
         .btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
         .btn:hover { background: #5a6fd6; }
         .btn-logout { background: rgba(255,255,255,0.2); }
-        
         .homework-item { border-left: 5px solid #667eea; padding: 15px; background: #f9f9f9; margin-bottom: 15px; border-radius: 5px; }
         .homework-meta { color: #666; font-size: 0.9rem; margin-bottom: 5px; }
         .homework-title { font-weight: bold; font-size: 1.1rem; color: #333; }
-        
-        /* 角色區塊控制 */
         .role-section { display: none; }
     </style>
 </head>
@@ -37,15 +31,14 @@
     </div>
 
     <div class="container">
-        
         <div id="studentSection" class="role-section">
             <div class="card">
                 <h2>📝 提交新功課</h2>
                 <div class="form-group">
-                    <input type="text" id="hwTitle" class="form-control" placeholder="功課標題 (例如：數學第三章習題)">
+                    <input type="text" id="hwTitle" class="form-control" placeholder="功課標題">
                 </div>
                 <div class="form-group">
-                    <textarea id="hwContent" class="form-control" placeholder="內容描述或繳交網址..."></textarea>
+                    <textarea id="hwContent" class="form-control" placeholder="內容描述..."></textarea>
                 </div>
                 <button onclick="submitHomework()" class="btn">提交功課</button>
             </div>
@@ -70,11 +63,10 @@
     </div>
 
     <script>
-        const API_BASE_URL = '/api';
+        const API_BASE_URL = '/api'; // 這裡定義了變數
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user'));
 
-        // 1. 初始化檢查
         if (!token || !user) {
             alert('請先登入！');
             window.location.href = 'login.html';
@@ -83,11 +75,9 @@
         }
 
         function initPage() {
-            // 設定歡迎訊息
             const roleName = user.role === 'student' ? '同學' : (user.role === 'teacher' ? '老師' : '家長');
             document.getElementById('welcomeMsg').textContent = `👋 你好，${user.username} ${roleName}`;
             
-            // 根據角色顯示對應區塊
             if (user.role === 'student') {
                 document.getElementById('studentSection').style.display = 'block';
                 document.getElementById('listTitle').textContent = '📚 我的功課紀錄';
@@ -97,89 +87,69 @@
             } else if (user.role === 'teacher') {
                 document.getElementById('listTitle').textContent = '👨‍🏫 全班功課總覽';
             }
-
-            // 載入功課列表
             loadHomework();
         }
 
-        // 2. 載入功課 (API GET)
         async function loadHomework() {
             try {
+                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/homework`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                
                 const listDiv = document.getElementById('homeworkList');
                 if (data.length === 0) {
                     listDiv.innerHTML = '<p style="text-align:center; color:#999;">目前沒有功課資料</p>';
                     return;
                 }
-
                 listDiv.innerHTML = data.map(hw => `
                     <div class="homework-item">
-                        <div class="homework-meta">
-                            學生：<strong>${hw.student_name}</strong> | 
-                            時間：${new Date(hw.created_at).toLocaleString()}
-                        </div>
+                        <div class="homework-meta">學生：<strong>${hw.student_name}</strong> | 時間：${new Date(hw.created_at).toLocaleString()}</div>
                         <div class="homework-title">${hw.title}</div>
                         <div style="margin-top:5px; color:#555;">${hw.content}</div>
                     </div>
                 `).join('');
-
             } catch (err) {
-                console.error(err);
                 alert('無法載入資料');
             }
         }
 
-        // 3. 提交功課 (學生用)
         async function submitHomework() {
             const title = document.getElementById('hwTitle').value;
             const content = document.getElementById('hwContent').value;
-
             if(!title || !content) return alert('請填寫完整');
-
             try {
+                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/homework`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ title, content })
                 });
-                
                 if(res.ok) {
                     alert('✅ 提交成功！');
                     document.getElementById('hwTitle').value = '';
                     document.getElementById('hwContent').value = '';
-                    loadHomework(); // 重新整理列表
+                    loadHomework();
                 } else {
                     alert('提交失敗');
                 }
             } catch(e) { alert('錯誤'); }
         }
 
-        // 4. 綁定孩子 (家長用)
         async function bindChild() {
             const childUsername = document.getElementById('childUsername').value;
             if(!childUsername) return alert('請輸入帳號');
-
             try {
+                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/bind-child`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ childUsername })
                 });
                 const data = await res.json();
-                
                 if(res.ok) {
                     alert(`✅ ${data.message}`);
-                    loadHomework(); // 綁定後重新載入列表
+                    loadHomework();
                 } else {
                     alert(`❌ ${data.error}`);
                 }
@@ -192,6 +162,4 @@
         }
     </script>
 </body>
-
 </html>
-
