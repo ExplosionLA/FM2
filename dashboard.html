@@ -105,7 +105,7 @@
         // 2. 載入功課 (API GET)
         async function loadHomework() {
             try {
-                const res = await fetch(`${API_URL}/homework`, {
+                const res = await fetch(`${API_BASE_URL}/homework`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -141,7 +141,7 @@
             if(!title || !content) return alert('請填寫完整');
 
             try {
-                const res = await fetch(`${API_URL}/homework`, {
+                const res = await fetch(`${API_BASE_URL}/homework`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
@@ -167,7 +167,7 @@
             if(!childUsername) return alert('請輸入帳號');
 
             try {
-                const res = await fetch(`${API_URL}/bind-child`, {
+                const res = await fetch(`${API_BASE_URL}/bind-child`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
@@ -194,3 +194,4 @@
 </body>
 
 </html>
+
