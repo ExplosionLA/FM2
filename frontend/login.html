@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 - 親師生互動系統</title>
+    <style>
+        /* (保留原本的 CSS 樣式，這裡省略以節省空間) */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 400px; width: 100%; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); color: white; padding: 40px 30px; text-align: center; }
+        .form-container { padding: 40px 30px; }
+        .form-group { margin-bottom: 25px; }
+        .form-control { width: 100%; padding: 14px; border: 2px solid #e1e5eb; border-radius: 10px; transition: all 0.3s; }
+        .form-control:focus { outline: none; border-color: #4361ee; }
+        .btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .register-link { text-align: center; margin-top: 20px; }
+        .alert { padding: 15px; border-radius: 10px; margin-bottom: 20px; display: none; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+        .alert-success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 登入</h1>
+            <p>歡迎回來</p>
+        </div>
+        
+        <div class="form-container">
+            <div id="alertBox" class="alert"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <input type="text" id="username" class="form-control" placeholder="帳號或 Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="password" class="form-control" placeholder="密碼" required>
+                </div>
+                <button type="submit" id="submitBtn" class="btn">
+                    <span id="btnText">🔑 立即登入</span>
+                </button>
+            </form>
+            
+            <div class="register-link">
+                還沒有帳號？<a href="register.html">立即註冊</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+
+        // 檢查是否已登入
+        if (localStorage.getItem('token')) {
+            // 實際專案中，這裡可以跳轉到首頁
+            // window.location.href = 'index.html';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            setButtonLoading(true);
+            showAlert('', 'hide');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('✅ 登入成功！正在跳轉...', 'success');
+                    
+                    // 重要：將 Token 存入 localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // 延遲跳轉
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html'; 
+                    }, 1000);
+                } else {
+                    showAlert(`❌ ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert('❌ 無法連接伺服器', 'error');
+            } finally {
+                setButtonLoading(false);
+            }
+        });
+        
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            if (type === 'hide') {
+                alertBox.style.display = 'none';
+                return;
+            }
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.style.display = 'block';
+        }
+        
+        function setButtonLoading(loading) {
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            btn.disabled = loading;
+            btnText.textContent = loading ? '登入中...' : '🔑 立即登入';
+        }
+    </script>
+</body>
+</html>
