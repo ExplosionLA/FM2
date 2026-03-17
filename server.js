@@ -449,6 +449,49 @@ app.get('/api/schedules', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '無法取得課表資料' });
   }
 });
+// 8.5.1 取得當月有課的日期 (月曆視圖用)
+app.get('/api/schedules/month', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const targetMonth = req.query.month; // 格式預期為 'YYYY-MM' (例如 '2024-12')
+    
+    // 計算該月的第一天與最後一天
+    const startDate = `${targetMonth}-01`;
+    const lastDay = new Date(targetMonth.split('-')[0], targetMonth.split('-')[1], 0).getDate();
+    const endDate = `${targetMonth}-${lastDay}`;
+
+    let query = supabase
+      .from('class_schedules')
+      .select('class_date, class_id, classes(teacher_id)')
+      .gte('class_date', startDate)
+      .lte('class_date', endDate);
+
+    let schedules = [];
+
+    // 根據角色過濾資料
+    if (role === 'teacher') {
+      const { data, error } = await query;
+      if (error) throw error;
+      schedules = data.filter(s => s.classes && s.classes.teacher_id == userId);
+    } else if (role === 'student') {
+      const { data: enrolled } = await supabase.from('student_classes').select('class_id').eq('student_id', userId);
+      const classIds = enrolled ? enrolled.map(e => e.class_id) : [];
+      if (classIds.length === 0) return res.json([]);
+      
+      const { data, error } = await query.in('class_id', classIds);
+      if (error) throw error;
+      schedules = data;
+    }
+
+    // 提取日期並去除重複
+    const datesWithClasses = [...new Set(schedules.map(item => item.class_date))];
+    res.json(datesWithClasses);
+
+  } catch (error) {
+    console.error('取得月曆資料錯誤:', error);
+    res.status(500).json({ error: '無法取得月曆資料' });
+  }
+});
 // 8.6 取得特定排課的點名名單與資訊
 app.get('/api/rollcall/:scheduleId', authenticateToken, async (req, res) => {
   try {
