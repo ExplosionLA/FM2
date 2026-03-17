@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上課點名詳情</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 80px; }
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+
+        /* 頂部導航 */
+        .header { background: #fff; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
+        .header i { cursor: pointer; color: #333; }
+        .header .placeholder { width: 20px; } /* 為了置中標題 */
+
+        /* 課程資訊卡片 */
+        .info-card { background: #fff; margin: 15px; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { color: #888; }
+        .info-value { color: #333; font-weight: 500; }
+        
+        /* 學生列表區域 */
+        .section-title { padding: 10px 20px; font-size: 15px; font-weight: bold; color: #555; }
+        .student-list { background: #fff; padding: 0 15px; }
+        .student-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+        .student-item:last-child { border-bottom: none; }
+        
+        .student-info { display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: #e0e7ff; color: #1864f9; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; }
+        .student-name { font-size: 15px; font-weight: bold; margin-bottom: 4px; }
+        .student-credits { font-size: 12px; color: #999; }
+        .student-credits span { color: #f59f00; font-weight: bold; }
+
+        /* 狀態選擇器 (Segemented Control) */
+        .status-group { display: flex; background: #f0f2f5; border-radius: 20px; padding: 3px; }
+        .status-btn { padding: 6px 14px; font-size: 13px; border: none; background: transparent; border-radius: 18px; cursor: pointer; color: #666; transition: 0.2s; }
+        .status-btn.active-attend { background: #1864f9; color: #fff; box-shadow: 0 2px 5px rgba(24,100,249,0.3); }
+        .status-btn.active-leave { background: #e03131; color: #fff; box-shadow: 0 2px 5px rgba(224,49,49,0.3); }
+        .status-btn.active-absent { background: #f59f00; color: #fff; box-shadow: 0 2px 5px rgba(245,159,0,0.3); }
+
+        /* 底部固定按鈕 */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 15px 20px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+        .summary-text { font-size: 14px; color: #666; }
+        .summary-text strong { color: #1864f9; font-size: 16px; }
+        .submit-btn { background: #1864f9; color: #fff; border: none; padding: 10px 24px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()"></i>
+        <span>上課點名詳情</span>
+        <div class="placeholder"></div>
+    </div>
+
+    <div class="info-card">
+        <div class="info-row">
+            <span class="info-label">上課課程：</span>
+            <span class="info-value" id="displayCourseName">載入中...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">上課時間：</span>
+            <span class="info-value" id="displayTime">載入中...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">扣除課時：</span>
+            <span class="info-value">記 <span style="color:#f59f00">1</span> 課時</span>
+        </div>
+    </div>
+
+    <div class="section-title">點名單</div>
+    
+    <div class="student-list" id="studentListContainer">
+        <p style="text-align:center; padding: 20px; color:#999;">載入學生名單中...</p>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="summary-text">
+            實到：<strong id="attendCount">0</strong> 人
+        </div>
+        <button class="submit-btn" onclick="submitAttendance()">確認點名</button>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = '/api';
+    const token = localStorage.getItem('token');
+    
+    // 從網址取得 schedule_id，例如: rollcall.html?schedule_id=1
+    const urlParams = new URLSearchParams(window.location.search);
+    const scheduleId = urlParams.get('schedule_id');
+    
+    let currentSchedule = null;
+    let studentsData = [];
+
+    if (!token) {
+        alert('請先登入！');
+        window.location.href = 'login.html';
+    } else if (!scheduleId) {
+        alert('未指定課程！');
+        window.history.back();
+    } else {
+        fetchRollcallData();
+    }
+
+    // 取得點名資料
+    async function fetchRollcallData() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/rollcall/${scheduleId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (!res.ok) throw new Error(data.error || '載入失敗');
+
+            currentSchedule = data.schedule;
+            studentsData = data.students;
+            
+            renderUI();
+        } catch (error) {
+            alert('載入失敗：' + error.message);
+        }
+    }
+
+    // 渲染畫面
+    function renderUI() {
+        // 渲染課程資訊
+        document.getElementById('displayCourseName').textContent = currentSchedule.classes.name;
+        document.getElementById('displayTime').textContent = `${currentSchedule.class_date} ${currentSchedule.start_time.substring(0,5)}~${currentSchedule.end_time.substring(0,5)}`;
+
+        // 渲染學生列表
+        const container = document.getElementById('studentListContainer');
+        if (studentsData.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding: 20px; color:#999;">此班級目前沒有學生報名</p>';
+            return;
+        }
+
+        container.innerHTML = studentsData.map((student, index) => `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="avatar">${student.username.charAt(0)}</div>
+                    <div>
+                        <div class="student-name">${student.username}</div>
+                        <div class="student-credits">剩餘課時: <span>${student.remaining_credits}</span></div>
+                    </div>
+                </div>
+                <div class="status-group">
+                    <button class="status-btn ${student.status === '到課' ? 'active-attend' : ''}" 
+                            onclick="updateStatus(${index}, '到課')">到課</button>
+                    <button class="status-btn ${student.status === '請假' ? 'active-leave' : ''}" 
+                            onclick="updateStatus(${index}, '請假')">請假</button>
+                    <button class="status-btn ${student.status === '缺勤' ? 'active-absent' : ''}" 
+                            onclick="updateStatus(${index}, '缺勤')">缺勤</button>
+                </div>
+            </div>
+        `).join('');
+
+        updateSummary();
+    }
+
+    // 更新學生狀態 (UI 點擊切換)
+    function updateStatus(index, newStatus) {
+        studentsData[index].status = newStatus;
+        renderUI(); // 重新渲染列表以更新按鈕樣式
+    }
+
+    // 更新底部「實到人數」
+    function updateSummary() {
+        const attendCount = studentsData.filter(s => s.status === '到課').length;
+        document.getElementById('attendCount').textContent = attendCount;
+    }
+
+    // 送出點名結果
+    async function submitAttendance() {
+        if(!confirm('確定要送出點名結果嗎？（到課學生將會扣除課時）')) return;
+
+        const payload = {
+            scheduleId: currentSchedule.id,
+            classId: currentSchedule.classes.id,
+            attendanceData: studentsData
+        };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/attendance`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('點名成功！');
+                window.location.href = 'timetable.html'; // 返回課表頁面
+            } else {
+                const data = await res.json();
+                alert('點名失敗：' + data.error);
+            }
+        } catch (error) {
+            alert('系統發生錯誤');
+        }
+    }
+</script>
+
+</body>
+</html>
