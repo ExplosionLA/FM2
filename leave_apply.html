@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>請假申請</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 80px; }
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+
+        /* 頂部導航 */
+        .header { background: #fff; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10; }
+        .header i { cursor: pointer; color: #333; }
+        .header .placeholder { width: 20px; }
+
+        /* 表單區塊 */
+        .form-section { background: #fff; padding: 20px; margin-top: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        .form-label { font-size: 14px; font-weight: bold; margin-bottom: 8px; display: block; color: #555; }
+        .form-label span { color: #e03131; } /* 紅色星號 */
+
+        .form-control { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; background: #f9f9f9; color: #333; margin-bottom: 20px; transition: 0.3s; }
+        .form-control:focus { border-color: #1864f9; background: #fff; }
+        textarea.form-control { height: 120px; resize: none; }
+
+        /* 底部按鈕 */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 15px 20px; max-width: 480px; margin: 0 auto; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
+        .submit-btn { width: 100%; background: #1864f9; color: #fff; border: none; padding: 14px; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()"></i>
+        <span>填寫請假單</span>
+        <div class="placeholder"></div>
+    </div>
+
+    <div class="form-section">
+        <label class="form-label"><span>*</span> 選擇請假學生</label>
+        <select id="childSelect" class="form-control" onchange="filterSchedules()">
+            <option value="">載入中...</option>
+        </select>
+
+        <label class="form-label"><span>*</span> 選擇請假課程</label>
+        <select id="scheduleSelect" class="form-control">
+            <option value="">請先選擇學生</option>
+        </select>
+
+        <label class="form-label"><span>*</span> 請假原因</label>
+        <textarea id="reasonInput" class="form-control" placeholder="請詳細填寫請假原因（例如：生病發燒、家庭旅遊...）"></textarea>
+    </div>
+
+    <div class="bottom-bar">
+        <button class="submit-btn" id="submitBtn" onclick="submitLeaveRequest()">送出申請</button>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = '/api';
+    const token = localStorage.getItem('token');
+    
+    let allSchedules = []; // 儲存所有撈回來的課程資料
+
+    if (!token) {
+        alert('請先登入！');
+        window.location.href = 'login.html';
+    } else {
+        fetchOptions();
+    }
+
+    // 取得下拉選單資料
+    async function fetchOptions() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/parent/leave-options`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            const childSelect = document.getElementById('childSelect');
+            if (data.children.length === 0) {
+                childSelect.innerHTML = '<option value="">您尚未綁定任何學生</option>';
+                document.getElementById('submitBtn').disabled = true;
+                return;
+            }
+
+            // 填入學生選單
+            childSelect.innerHTML = '<option value="">-- 請選擇學生 --</option>' + 
+                data.children.map(c => `<option value="${c.id}">${c.username}</option>`).join('');
+            
+            allSchedules = data.schedules; // 儲存起來供篩選用
+
+        } catch (error) {
+            alert('無法載入資料，請重試');
+        }
+    }
+
+    // 當選擇學生時，動態過濾該學生的課程
+    function filterSchedules() {
+        const studentId = parseInt(document.getElementById('childSelect').value);
+        const scheduleSelect = document.getElementById('scheduleSelect');
+
+        if (!studentId) {
+            scheduleSelect.innerHTML = '<option value="">請先選擇學生</option>';
+            return;
+        }
+
+        const filtered = allSchedules.filter(s => s.student_ids.includes(studentId));
+        
+        if (filtered.length === 0) {
+            scheduleSelect.innerHTML = '<option value="">該學生近期沒有課程</option>';
+            return;
+        }
+
+        scheduleSelect.innerHTML = '<option value="">-- 請選擇要請假的課程 --</option>' + 
+            filtered.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+    }
+
+    // 送出請假申請
+    async function submitLeaveRequest() {
+        const studentId = document.getElementById('childSelect').value;
+        const scheduleId = document.getElementById('scheduleSelect').value;
+        const reason = document.getElementById('reasonInput').value.trim();
+
+        if (!studentId) return alert('請選擇學生');
+        if (!scheduleId) return alert('請選擇請假課程');
+        if (!reason) return alert('請填寫請假原因');
+
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.textContent = '送出中...';
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/leave`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ studentId, scheduleId, reason })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                alert('✅ ' + data.message);
+                window.location.href = 'profile.html'; // 成功後跳回個人中心
+            } else {
+                alert('❌ ' + data.error);
+                btn.disabled = false;
+                btn.textContent = '送出申請';
+            }
+        } catch (error) {
+            alert('系統發生錯誤');
+            btn.disabled = false;
+            btn.textContent = '送出申請';
+        }
+    }
+</script>
+
+</body>
+</html>
