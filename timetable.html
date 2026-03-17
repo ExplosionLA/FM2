@@ -10,14 +10,27 @@
         body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 70px; }
         .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
 
-        /* 頂部月份與日期 */
-        .header-top { background: #fff; padding: 15px 20px 10px; text-align: center; font-size: 18px; font-weight: bold; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        
+        /* 頂部月份與切換按鈕 */
+        .header-top { background: #fff; padding: 15px 20px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .view-toggle { cursor: pointer; color: #1864f9; font-size: 20px; padding: 5px; }
+
+        /* 週曆視圖 */
         .week-calendar { display: flex; justify-content: space-between; background: #fff; padding: 10px 20px 20px; border-bottom: 1px solid #eee; }
         .day-item { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; color: #666; cursor: pointer; }
         .day-item .date-num { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 16px; font-weight: bold; }
         .day-item.active .date-num { background: #1864f9; color: #fff; }
         .day-item.active { color: #333; font-weight: bold; }
+
+        /* 月曆視圖 (新增) */
+        .monthly-calendar { display: none; grid-template-columns: repeat(7, 1fr); gap: 8px; background: #fff; padding: 15px 20px 25px; border-bottom: 1px solid #eee; text-align: center; }
+        .month-day-name { font-size: 13px; color: #999; margin-bottom: 5px; }
+        .month-day-cell { height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 15px; cursor: pointer; color: #333; position: relative; }
+        
+        /* 💡 這裡就是你要求的「黃色底框」標記有課的日子 */
+        .month-day-cell.has-class { background: #fff3bf; border: 2px solid #fcc419; font-weight: bold; color: #d9480f; }
+        
+        .month-day-cell.active { background: #1864f9 !important; color: #fff !important; border: none; }
+        .month-day-cell.empty { background: transparent; border: none; cursor: default; }
 
         /* 資訊列 */
         .info-bar { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; color: #666; font-size: 14px; }
@@ -25,29 +38,23 @@
         /* 課程卡片 */
         .schedule-list { padding: 0 20px; display: flex; flex-direction: column; gap: 15px; }
         .card { background: #fff; border-radius: 12px; border-left: 4px solid #1864f9; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
-        
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .class-title { font-size: 18px; font-weight: bold; }
         .time-text { color: #888; font-size: 14px; }
-
         .card-body { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px; color: #555; text-align: center; }
         .detail-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
         .detail-label { color: #999; font-size: 12px; }
         .status-text { color: #f59f00; font-weight: bold; }
-
         .card-actions { border-top: 1px solid #f0f0f0; padding-top: 15px; display: flex; align-items: center; gap: 10px; }
         .btn-sm { padding: 6px 16px; border-radius: 6px; font-size: 13px; border: none; cursor: pointer; color: #fff; }
         .btn-blue { background: #1864f9; }
         .btn-red { background: #e03131; }
-        .view-more { margin-left: auto; color: #888; font-size: 13px; text-decoration: none; }
 
-        /* 底部導航列 */
+        /* 底部導航與懸浮按鈕 */
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; z-index: 10; }
         .nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; gap: 4px; }
         .nav-item i { font-size: 20px; }
         .nav-item.active { color: #1864f9; }
-
-        /* 浮動新增按鈕 (僅老師可見) */
         .fab-btn { position: fixed; bottom: 80px; right: calc(50% - 220px); width: 50px; height: 50px; background: #1864f9; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 15px rgba(24, 100, 249, 0.4); cursor: pointer; z-index: 10; display: none; }
         @media (max-width: 480px) { .fab-btn { right: 20px; } }
     </style>
@@ -55,15 +62,19 @@
 <body>
 
 <div class="container">
-    <div class="header-top" id="monthDisplay">2024年12月</div>
-    <div class="week-calendar" id="weekCalendar">
-        </div>
-
-    <div class="info-bar">
-        <span>共 <strong id="dataCount">0</strong> 條數據</span>
-        <i class="fa-solid fa-rotate-right" style="cursor: pointer;" onclick="fetchSchedules()"></i>
+    <div class="header-top">
+        <span id="monthDisplay">2024年12月</span>
+        <i class="fa-solid fa-calendar-days view-toggle" id="viewToggleBtn" onclick="toggleViewMode()"></i>
     </div>
 
+    <div class="week-calendar" id="weekCalendar"></div>
+
+    <div class="monthly-calendar" id="monthlyCalendar"></div>
+
+    <div class="info-bar">
+        <span>共 <strong id="dataCount">0</strong> 堂課</span>
+        <i class="fa-solid fa-rotate-right" style="cursor: pointer;" onclick="fetchSchedules()"></i>
+    </div>
     <div class="schedule-list" id="scheduleList">
         <p style="text-align:center; color:#999; margin-top: 20px;">載入中...</p>
     </div>
@@ -93,40 +104,67 @@
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user'));
     
-    // 目前選取的日期 (預設今天)
     let selectedDate = new Date();
+    let isMonthlyView = false; // 控制現在是看月曆還是週曆
+    let datesWithClasses = []; // 儲存當月有課的日期列表
 
     if (!token || !user) {
         alert('請先登入！');
         window.location.href = 'login.html';
     } else {
-        initCalendar();
-        fetchSchedules();
-        
-        // 如果是老師，顯示右下角的「+」新增排課按鈕
         if (user.role === 'teacher') {
             document.getElementById('addScheduleBtn').style.display = 'flex';
         }
+        initApp();
     }
 
-    // 初始化一週日曆 (以今天為基準，產生週一到週日)
-    function initCalendar() {
-        const calendarEl = document.getElementById('weekCalendar');
+    // 將日期格式化為 YYYY-MM-DD (避免時區問題)
+    function formatDate(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    async function initApp() {
         document.getElementById('monthDisplay').textContent = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月`;
-        
-        // 簡單邏輯：產生包含今天的前後幾天 (實務上會計算週一到週日)
-        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        renderWeekCalendar();
+        await fetchSchedules();
+    }
+
+    // 切換月曆/週曆
+    async function toggleViewMode() {
+        isMonthlyView = !isMonthlyView;
+        const icon = document.getElementById('viewToggleBtn');
+        const weekEl = document.getElementById('weekCalendar');
+        const monthEl = document.getElementById('monthlyCalendar');
+
+        if (isMonthlyView) {
+            icon.classList.remove('fa-calendar-days');
+            icon.classList.add('fa-grip-lines'); // 換成列表圖示
+            weekEl.style.display = 'none';
+            monthEl.style.display = 'grid';
+            await renderMonthlyCalendar();
+        } else {
+            icon.classList.remove('fa-grip-lines');
+            icon.classList.add('fa-calendar-days'); // 換回日曆圖示
+            monthEl.style.display = 'none';
+            weekEl.style.display = 'flex';
+            renderWeekCalendar();
+        }
+    }
+
+    // 渲染週曆 (原本的邏輯)
+    function renderWeekCalendar() {
+        const calendarEl = document.getElementById('weekCalendar');
+        const days = ['日', '一', '二', '三', '四', '五', '六'];
         let html = '';
         
-        // 產生以今天為中心的 7 天
         for (let i = -3; i <= 3; i++) {
             const d = new Date(selectedDate);
             d.setDate(d.getDate() + i);
-            const isToday = i === 0;
-            const dateStr = d.toISOString().split('T')[0];
+            const isSelected = i === 0;
+            const dateStr = formatDate(d);
             
             html += `
-                <div class="day-item ${isToday ? 'active' : ''}" onclick="changeDate('${dateStr}', this)">
+                <div class="day-item ${isSelected ? 'active' : ''}" onclick="changeDate('${dateStr}')">
                     <span>${days[d.getDay()]}</span>
                     <div class="date-num">${d.getDate()}</div>
                 </div>
@@ -135,19 +173,67 @@
         calendarEl.innerHTML = html;
     }
 
-    // 切換日期
-    function changeDate(dateStr, element) {
-        // 更新 UI 狀態
-        document.querySelectorAll('.day-item').forEach(el => el.classList.remove('active'));
-        element.classList.add('active');
+    // 渲染月曆 (新增邏輯)
+    async function renderMonthlyCalendar() {
+        const container = document.getElementById('monthlyCalendar');
+        const year = selectedDate.getFullYear();
+        const month = selectedDate.getMonth();
+        const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+        // 呼叫新 API 取得當月有課的日子
+        try {
+            const res = await fetch(`${API_BASE_URL}/schedules/month?month=${monthStr}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            datesWithClasses = await res.json();
+        } catch (e) {
+            console.error('無法取得月曆資料');
+        }
+
+        const firstDayOfWeek = new Date(year, month, 1).getDay(); // 這個月第一天是星期幾
+        const daysInMonth = new Date(year, month + 1, 0).getDate(); // 這個月有幾天
         
-        // 更新選擇的日期並重新抓資料
+        // 加入星期標頭
+        const days = ['日', '一', '二', '三', '四', '五', '六'];
+        let html = days.map(d => `<div class="month-day-name">${d}</div>`).join('');
+        
+        // 填補月初的空白格子
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            html += '<div class="month-day-cell empty"></div>';
+        }
+        
+        // 產生日期格子
+        const selectedDateStr = formatDate(selectedDate);
+        for (let d = 1; d <= daysInMonth; d++) {
+            const currentStr = `${monthStr}-${String(d).padStart(2, '0')}`;
+            const isActive = currentStr === selectedDateStr ? 'active' : '';
+            // 如果這天有課，加上 has-class (黃色底框)
+            const hasClass = datesWithClasses.includes(currentStr) ? 'has-class' : '';
+            
+            html += `<div class="month-day-cell ${hasClass} ${isActive}" onclick="changeDate('${currentStr}')">${d}</div>`;
+        }
+        
+        container.innerHTML = html;
+    }
+
+    // 點擊日期的動作
+    function changeDate(dateStr) {
         selectedDate = new Date(dateStr);
+        document.getElementById('monthDisplay').textContent = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月`;
+        
+        // 更新視圖選取狀態
+        if (isMonthlyView) {
+            renderMonthlyCalendar();
+        } else {
+            renderWeekCalendar();
+        }
+        
+        // 抓取當天課表
         fetchSchedules(dateStr);
     }
 
-    // 抓取課表資料
-    async function fetchSchedules(dateStr = selectedDate.toISOString().split('T')[0]) {
+    // 抓取當日課表
+    async function fetchSchedules(dateStr = formatDate(selectedDate)) {
         const listEl = document.getElementById('scheduleList');
         listEl.innerHTML = '<p style="text-align:center; color:#999; margin-top: 20px;">載入中...</p>';
         
@@ -160,11 +246,10 @@
             document.getElementById('dataCount').textContent = data.length;
 
             if (data.length === 0) {
-                listEl.innerHTML = '<p style="text-align:center; color:#999; margin-top: 20px;">這天沒有課程安排</p>';
+                listEl.innerHTML = '<p style="text-align:center; color:#999; margin-top: 20px;">這天沒有課程安排哦！</p>';
                 return;
             }
 
-            // 渲染卡片
             listEl.innerHTML = data.map(item => `
                 <div class="card">
                     <div class="card-header">
@@ -173,51 +258,29 @@
                     </div>
                     <div class="card-body">
                         <div class="detail-item">
-                            <span>未綁定課程</span>
-                            <span class="detail-label">上課課程</span>
-                        </div>
-                        <div class="detail-item">
-                            <span>預設教室</span>
-                            <span class="detail-label">上課教室</span>
-                        </div>
-                        <div class="detail-item">
                             <span class="status-text">${item.status}</span>
-                            <span class="detail-label">上課點名</span>
+                            <span class="detail-label">課程狀態</span>
                         </div>
                     </div>
                     ${renderActions(item)}
                 </div>
             `).join('');
-
         } catch (error) {
-            listEl.innerHTML = '<p style="text-align:center; color:#e03131; margin-top: 20px;">載入失敗，請重試</p>';
+            listEl.innerHTML = '<p style="text-align:center; color:#e03131;">載入失敗</p>';
         }
     }
 
-    // 根據角色渲染下方按鈕 (只有老師需要調課、點名)
+    // 渲染按鈕
     function renderActions(item) {
         if (user.role === 'teacher') {
             return `
                 <div class="card-actions">
                     <button class="btn-sm btn-blue">調課</button>
-                    <button class="btn-sm btn-red" onclick="goToRollCall(${item.id})">點名</button>
-                    <a href="#" class="view-more">查看詳情 ></a>
+                    <button class="btn-sm btn-red" onclick="window.location.href='rollcall.html?schedule_id=${item.id}'">點名</button>
                 </div>
             `;
         }
-        // 學生/家長視角，可能只有查看詳情
-        return `
-            <div class="card-actions">
-                <a href="#" class="view-more" style="margin-left: 0;">查看詳情 ></a>
-            </div>
-        `;
-    }
-
-    // 點擊「點名」按鈕的動作
-    function goToRollCall(scheduleId) {
-        // 將原本的 alert 換成以下這行：
-        window.location.href = `rollcall.html?schedule_id=${scheduleId}`;
-    
+        return '';
     }
 </script>
 
