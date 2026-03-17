@@ -8,14 +8,14 @@
     <style>
         /* 共用與重置樣式 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 70px; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 80px; }
         .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
 
         /* 頂部個人資訊區塊 */
         .profile-header { background: linear-gradient(to bottom, #eef2ff, #f5f7fa); padding: 30px 20px 10px; display: flex; align-items: center; gap: 15px; }
         .avatar { width: 60px; height: 60px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .user-info h2 { font-size: 20px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
-        .user-info h2 i { color: #667eea; font-size: 16px; }
+        .user-info h2 i { color: #1864f9; font-size: 16px; }
         .user-info p { color: #666; font-size: 13px; background: #e0e7ff; padding: 2px 8px; border-radius: 12px; display: inline-block; }
 
         /* 卡片共用樣式 */
@@ -46,10 +46,10 @@
         .list-menu a i { color: #ccc; }
 
         /* 底部導航列 */
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; z-index: 10;}
         .nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; gap: 4px; }
         .nav-item i { font-size: 20px; }
-        .nav-item.active { color: #667eea; }
+        .nav-item.active { color: #1864f9; }
     </style>
 </head>
 <body>
@@ -59,21 +59,21 @@
         <div class="avatar">👨‍🎓</div>
         <div class="user-info">
             <h2><span id="displayUsername">載入中...</span> <i class="fa-solid fa-mars"></i></h2>
-            <p>家長 <span id="displayParentPhone">未綁定</span></p>
+            <p id="displayParentPhone">載入中...</p>
         </div>
     </div>
 
     <div class="card stats-grid">
         <div class="stat-item">
-            <h3>53 <span>課節</span></h3>
+            <h3 id="stat-pending">0 <span>課節</span></h3>
             <p>本月待上課</p>
         </div>
         <div class="stat-item">
-            <h3>2 <span>課節</span></h3>
+            <h3 id="stat-completed">0 <span>課節</span></h3>
             <p>本月已上課</p>
         </div>
         <div class="stat-item">
-            <h3>0/0 <span>次</span></h3>
+            <h3 id="stat-attendance">0/0 <span>次</span></h3>
             <p>請假/缺勤</p>
         </div>
     </div>
@@ -110,10 +110,10 @@
     <div class="bottom-nav">
         <a href="dashboard.html" class="nav-item">
             <i class="fa-solid fa-house"></i>
-            <span>首頁</span>
+            <span>工作台</span>
         </a>
-        <a href="#" class="nav-item">
-            <i class="fa-solid fa-calendar-days"></i>
+        <a href="timetable.html" class="nav-item">
+            <i class="fa-regular fa-calendar-check"></i>
             <span>課表</span>
         </a>
         <a href="profile.html" class="nav-item active">
@@ -166,17 +166,12 @@
         // 1. 渲染使用者基本資料
         const roleName = data.user.role === 'student' ? '學生' : (data.user.role === 'teacher' ? '老師' : '家長');
         document.getElementById('displayUsername').textContent = data.user.username;
-        document.getElementById('displayParentPhone').innerHTML = `${roleName} <span>${data.user.phone}</span>`;
+        document.getElementById('displayParentPhone').innerHTML = `${roleName} <span>${data.user.phone || '未綁定電話'}</span>`;
 
-        // 2. 渲染統計數據 (找到對應的 DOM 並更新)
-        // 注意：這裡為了方便，我在 HTML 加上了 id，請確保你的 HTML 中 <h3> 裡面有對應的 id 
-        // 例如：<h3 id="stat-pending">...</h3>
-        const statItems = document.querySelectorAll('.stat-item h3');
-        if(statItems.length >= 3) {
-            statItems[0].innerHTML = `${data.stats.pendingClasses} <span>課節</span>`;
-            statItems[1].innerHTML = `${data.stats.completedClasses} <span>課節</span>`;
-            statItems[2].innerHTML = `${data.stats.leaveCount}/${data.stats.absenceCount} <span>次</span>`;
-        }
+        // 2. 渲染統計數據 (把從後端要到的真實數據放進來)
+        document.getElementById('stat-pending').innerHTML = `${data.stats.pendingClasses} <span>課節</span>`;
+        document.getElementById('stat-completed').innerHTML = `${data.stats.completedClasses} <span>課節</span>`;
+        document.getElementById('stat-attendance').innerHTML = `${data.stats.leaveCount}/${data.stats.absenceCount} <span>次</span>`;
     }
 
     function logout() {
