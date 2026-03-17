@@ -69,6 +69,18 @@
                 </div>
             </div>
 
+            <div id="teacherSection" class="role-section">
+                <div class="card">
+                    <h2>👨‍🏫 教務管理</h2>
+                    <button onclick="window.location.href='leave_approval.html'" class="btn" style="background: #f59f00; margin-bottom: 10px;">
+                        <i class="fa-solid fa-clipboard-check"></i> 處理請假審批
+                    </button>
+                    <button onclick="window.location.href='schedule_edit.html'" class="btn" style="background: #1864f9;">
+                        <i class="fa-solid fa-calendar-plus"></i> 新增排課
+                    </button>
+                </div>
+            </div>
+
             <div class="card">
                 <h2 id="listTitle">📚 功課列表</h2>
                 <div id="homeworkList">
@@ -117,6 +129,7 @@
                 document.getElementById('listTitle').textContent = '📚 孩子的功課狀況';
             } else if (user.role === 'teacher') {
                 document.getElementById('listTitle').textContent = '👨‍🏫 全班功課總覽';
+                document.getElementById('teacherSection').style.display = 'block'; // 顯示老師專屬區塊
             }
             loadHomework();
         }
