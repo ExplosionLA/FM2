@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>請假審批</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 80px; }
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+
+        /* 頂部導航 */
+        .header { background: #fff; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10; }
+        .header i { cursor: pointer; color: #333; }
+        .header .placeholder { width: 20px; }
+
+        /* 請假單卡片 */
+        .request-list { padding: 15px; }
+        .request-card { background: #fff; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border-left: 4px solid #f59f00; }
+        .request-card.approved { border-left-color: #40c057; }
+        .request-card.rejected { border-left-color: #fa5252; }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        .student-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background: #e0e7ff; color: #1864f9; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
+        .student-name { font-size: 16px; font-weight: bold; color: #333; }
+        .apply-time { font-size: 12px; color: #999; margin-top: 2px; }
+        
+        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .status-pending { background: #fff3bf; color: #f59f00; }
+        .status-approved { background: #d3f9d8; color: #40c057; }
+        .status-rejected { background: #ffe3e3; color: #fa5252; }
+
+        .card-body { font-size: 14px; color: #555; line-height: 1.6; }
+        .info-row { display: flex; margin-bottom: 5px; }
+        .info-label { width: 70px; color: #888; }
+        .info-value { flex: 1; font-weight: 500; color: #333; }
+        .reason-box { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #666; }
+
+        .card-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-approve { background: #1864f9; color: #fff; }
+        .btn-reject { background: #f1f3f5; color: #495057; }
+
+        /* 底部導航 */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; z-index: 10; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; gap: 4px; }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { color: #1864f9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()"></i>
+        <span>請假審批</span>
+        <div class="placeholder"></div>
+    </div>
+
+    <div class="request-list" id="requestList">
+        <p style="text-align:center; padding: 20px; color:#999;">載入請假單中...</p>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-house"></i>
+            <span>工作台</span>
+        </a>
+        <a href="timetable.html" class="nav-item">
+            <i class="fa-regular fa-calendar-check"></i>
+            <span>課表</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <i class="fa-regular fa-user"></i>
+            <span>我的</span>
+        </a>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = '/api';
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    if (!token || user.role !== 'teacher') {
+        alert('此頁面僅限老師使用！');
+        window.history.back();
+    } else {
+        fetchLeaveRequests();
+    }
+
+    async function fetchLeaveRequests() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/leave`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            const listEl = document.getElementById('requestList');
+            
+            if (data.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; padding: 30px; color:#999;"><i class="fa-solid fa-inbox" style="font-size: 40px; margin-bottom: 10px; color: #ddd;"></i><br>目前沒有待審核的請假單</p>';
+                return;
+            }
+
+            listEl.innerHTML = data.map(req => {
+                let statusClass = 'status-pending';
+                let cardClass = '';
+                if (req.status === '已批准') { statusClass = 'status-approved'; cardClass = 'approved'; }
+                if (req.status === '已拒絕') { statusClass = 'status-rejected'; cardClass = 'rejected'; }
+
+                const applyDate = new Date(req.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <div class="request-card ${cardClass}">
+                        <div class="card-header">
+                            <div class="student-info">
+                                <div class="avatar">${req.student.username.charAt(0)}</div>
+                                <div>
+                                    <div class="student-name">${req.student.username}</div>
+                                    <div class="apply-time">申請時間: ${applyDate}</div>
+                                </div>
+                            </div>
+                            <div class="status-badge ${statusClass}">${req.status}</div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <div class="info-row">
+                                <div class="info-label">請假課程</div>
+                                <div class="info-value">${req.schedule.classes.name}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">上課時間</div>
+                                <div class="info-value">${req.schedule.class_date} ${req.schedule.start_time.substring(0,5)}</div>
+                            </div>
+                            <div class="reason-box">
+                                <strong>請假原因：</strong><br>
+                                ${req.reason}
+                            </div>
+                        </div>
+
+                        ${req.status === '待審核' ? `
+                            <div class="card-actions">
+                                <button class="btn btn-reject" onclick="updateStatus(${req.id}, '已拒絕')">拒絕</button>
+                                <button class="btn btn-approve" onclick="updateStatus(${req.id}, '已批准')">批准請假</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            document.getElementById('requestList').innerHTML = '<p style="text-align:center; color:red;">無法載入資料</p>';
+        }
+    }
+
+    async function updateStatus(id, status) {
+        if (!confirm(`確定要將此請假單設為「${status}」嗎？`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/leave/${id}/status`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ status })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert('✅ ' + data.message);
+                fetchLeaveRequests(); // 重新載入列表
+            } else {
+                alert('❌ 操作失敗：' + data.error);
+            }
+        } catch (error) {
+            alert('系統發生錯誤');
+        }
+    }
+</script>
+
+</body>
+</html>
