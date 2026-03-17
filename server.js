@@ -449,6 +449,119 @@ app.get('/api/schedules', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '無法取得課表資料' });
   }
 });
+// 8.6 取得特定排課的點名名單與資訊
+app.get('/api/rollcall/:scheduleId', authenticateToken, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+
+    // 1. 取得這堂課的基本資訊
+    const { data: schedule, error: scheduleError } = await supabase
+      .from('class_schedules')
+      .select(`
+        id, class_date, start_time, end_time, status,
+        classes ( id, name )
+      `)
+      .eq('id', scheduleId)
+      .single();
+    if (scheduleError) throw scheduleError;
+
+    // 2. 取得這個班級的報名學生名單與他們的剩餘課時
+    const { data: students, error: studentsError } = await supabase
+      .from('student_classes')
+      .select(`
+        student_id,
+        remaining_credits,
+        users ( id, username )
+      `)
+      .eq('class_id', schedule.classes.id);
+    if (studentsError) throw studentsError;
+
+    // 3. 取得這堂課"已經點過"的紀錄 (如果有的話)
+    const { data: attendances, error: attError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('schedule_id', scheduleId);
+    if (attError) throw attError;
+
+    // 4. 將資料整合成前端好用的格式
+    const studentList = students.map(st => {
+      const record = attendances.find(a => a.student_id === st.student_id);
+      return {
+        student_id: st.student_id,
+        username: st.users ? st.users.username : '未知學生',
+        remaining_credits: st.remaining_credits,
+        status: record ? record.status : '到課', // 預設「到課」
+        deduct_credits: record ? record.deduct_credits : 1.0 // 預設扣 1 課時
+      };
+    });
+
+    res.json({
+      schedule: schedule,
+      students: studentList
+    });
+
+  } catch (error) {
+    console.error('取得點名資訊錯誤:', error);
+    res.status(500).json({ error: '無法取得點名資訊' });
+  }
+});
+
+// 8.7 老師送出確認點名
+app.post('/api/attendance', authenticateToken, async (req, res) => {
+  try {
+    const { scheduleId, classId, attendanceData } = req.body;
+    // attendanceData 格式預期為: [{ student_id, status, deduct_credits }, ...]
+
+    // 針對每個學生進行點名紀錄寫入與扣除課時
+    for (const record of attendanceData) {
+      // 1. 寫入或更新 attendance 表 (這裡用 upsert 來避免重複點名錯誤)
+      // 注意：Supabase upsert 需要有 unique constraint (我們之前有設 UNIQUE(schedule_id, student_id))
+      const { error: attError } = await supabase
+        .from('attendance')
+        .upsert({
+          schedule_id: scheduleId,
+          student_id: record.student_id,
+          status: record.status,
+          deduct_credits: record.deduct_credits
+        }, { onConflict: 'schedule_id, student_id' });
+      
+      if (attError) console.error('點名寫入失敗:', attError);
+
+      // 2. 如果狀態是「到課」，則從 student_classes 扣除剩餘課時
+      // (實務上請假或缺勤要不要扣課時，可依你們的商業邏輯調整，這裡先示範到課才扣)
+      if (record.status === '到課') {
+        // 先取得目前的剩餘課時
+        const { data: scData } = await supabase
+          .from('student_classes')
+          .select('remaining_credits')
+          .eq('student_id', record.student_id)
+          .eq('class_id', classId)
+          .single();
+          
+        if (scData) {
+          const newCredits = Math.max(0, scData.remaining_credits - record.deduct_credits);
+          await supabase
+            .from('student_classes')
+            .update({ remaining_credits: newCredits })
+            .eq('student_id', record.student_id)
+            .eq('class_id', classId);
+        }
+      }
+    }
+
+    // 3. 更新排課表狀態為「已點名」
+    await supabase
+      .from('class_schedules')
+      .update({ status: '已點名' })
+      .eq('id', scheduleId);
+
+    res.json({ message: '點名成功！' });
+
+  } catch (error) {
+    console.error('點名送出錯誤:', error);
+    res.status(500).json({ error: '點名處理失敗' });
+  }
+});
 
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
