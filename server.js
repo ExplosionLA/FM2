@@ -290,6 +290,58 @@ app.post('/api/bind-child', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '綁定失敗，請稍後再試' });
   }
 });
+// 8.4 取得個人中心資訊 (Profile & Stats)
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role, username } = req.user;
+
+    // 1. 取得使用者的詳細資料
+    // 注意：目前的註冊邏輯沒有 phone 欄位，未來如果有加可以 select 'phone'
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('email, role') 
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+
+    // 2. 取得課程統計數據
+    // 【提醒】目前你的資料庫還沒有「課程」與「點名出勤」的 Table。
+    // 這裡先回傳假資料以符合截圖 UI，未來有了 Table 後可以取消下方註解改成真實查詢：
+    
+    /* // 未來真實查詢範例：
+    const { count: pendingCount } = await supabase
+      .from('class_schedules')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', userId)
+      .gte('class_date', '2024-12-01') // 本月
+      .eq('status', 'pending');
+    */
+
+    const stats = {
+      pendingClasses: 53,       // 本月待上課
+      completedClasses: 2,      // 本月已上課
+      leaveCount: 0,            // 請假次數
+      absenceCount: 0           // 缺勤次數
+    };
+
+    // 3. 回傳整合後的資料給前端
+    res.json({
+      user: {
+        id: userId,
+        username: username,
+        role: userData.role,
+        email: userData.email,
+        phone: '18888888888', // 這裡暫時寫死，未來請從 userData.phone 取得
+      },
+      stats: stats
+    });
+
+  } catch (error) {
+    console.error('取得個人資訊錯誤:', error);
+    res.status(500).json({ error: '無法取得個人資訊' });
+  }
+});
 
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
