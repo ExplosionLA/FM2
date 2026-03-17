@@ -386,6 +386,70 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// 8.5 取得當日課表 (Timetable)
+app.get('/api/schedules', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    // 如果前端有傳日期就用前端的，沒有就預設今天
+    const targetDate = req.query.date || new Date().toISOString().split('T')[0];
+
+    // 1. 準備查詢：從 class_schedules 表關聯 classes 表
+    // 注意：Supabase 的 Join 語法是透過 Foreign Key 自動關聯的
+    let query = supabase
+      .from('class_schedules')
+      .select(`
+        id,
+        class_date,
+        start_time,
+        end_time,
+        status,
+        classes (
+          id,
+          name,
+          teacher_id
+        )
+      `)
+      .eq('class_date', targetDate)
+      .order('start_time', { ascending: true });
+
+    // 2. 根據角色過濾資料
+    if (role === 'teacher') {
+      // 老師：只看自己教的課 (這裡因為 Supabase 限制，我們全抓出來在 Node 裡過濾比較保險)
+      const { data: schedules, error } = await query;
+      if (error) throw error;
+      
+      const teacherSchedules = schedules.filter(s => s.classes && s.classes.teacher_id == userId);
+      return res.json(teacherSchedules);
+
+    } else if (role === 'student') {
+      // 學生：先找出他報名了哪些班級
+      const { data: enrolled } = await supabase
+        .from('student_classes')
+        .select('class_id')
+        .eq('student_id', userId);
+        
+      const classIds = enrolled ? enrolled.map(e => e.class_id) : [];
+      
+      if (classIds.length === 0) return res.json([]); // 沒報名任何班級
+      
+      // 再找出這些班級今天的排課
+      const { data: studentSchedules, error } = await query.in('class_id', classIds);
+      if (error) throw error;
+      
+      return res.json(studentSchedules);
+    } else {
+      // 其他角色 (家長/管理員) 暫時回傳空陣列或全部
+      const { data: allSchedules, error } = await query;
+      if (error) throw error;
+      return res.json(allSchedules);
+    }
+
+  } catch (error) {
+    console.error('取得課表錯誤:', error);
+    res.status(500).json({ error: '無法取得課表資料' });
+  }
+});
+
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
