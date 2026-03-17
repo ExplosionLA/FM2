@@ -215,9 +215,9 @@
 
     // 點擊「點名」按鈕的動作
     function goToRollCall(scheduleId) {
-        // 未來會建立一個 rollcall.html 頁面，把 scheduleId 傳過去
-        alert(`即將進入排課 ID: ${scheduleId} 的點名頁面！`);
-        // window.location.href = `rollcall.html?schedule_id=${scheduleId}`;
+        // 將原本的 alert 換成以下這行：
+        window.location.href = `rollcall.html?schedule_id=${scheduleId}`;
+    
     }
 </script>
 
