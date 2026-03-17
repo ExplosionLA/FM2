@@ -739,6 +739,51 @@ app.put('/api/leave/:id/status', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '審核失敗' });
   }
 });
+// 4. 取得家長的小孩名單與近期課程 (請假下拉選單用)
+app.get('/api/parent/leave-options', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    if (role !== 'parent') return res.status(403).json({ error: '僅限家長' });
+
+    // A. 找出該家長綁定的孩子
+    const { data: relations } = await supabase.from('parent_child').select('child_id').eq('parent_id', userId);
+    if (!relations || relations.length === 0) return res.json({ children: [], schedules: [] });
+    
+    const childIds = relations.map(r => r.child_id);
+    const { data: children } = await supabase.from('users').select('id, username').in('id', childIds);
+
+    // B. 找出這些孩子報名的班級
+    const { data: enrolled } = await supabase.from('student_classes').select('student_id, class_id').in('student_id', childIds);
+    if (!enrolled || enrolled.length === 0) return res.json({ children, schedules: [] });
+    
+    const classIds = enrolled.map(e => e.class_id);
+
+    // C. 找出這些班級「未來」的排課
+    const today = new Date().toISOString().split('T')[0];
+    const { data: schedules } = await supabase
+      .from('class_schedules')
+      .select('id, class_id, class_date, start_time, classes(name)')
+      .in('class_id', classIds)
+      .gte('class_date', today)
+      .order('class_date', { ascending: true });
+
+    // D. 把資料整理好傳給前端
+    const availableSchedules = schedules.map(s => {
+      // 找出這堂課是屬於哪個小孩的
+      const studentIdsForThisClass = enrolled.filter(e => e.class_id === s.class_id).map(e => e.student_id);
+      return {
+        id: s.id,
+        student_ids: studentIdsForThisClass,
+        label: `${s.class_date} ${s.start_time.substring(0,5)} - ${s.classes.name}`
+      };
+    });
+
+    res.json({ children, schedules: availableSchedules });
+  } catch (error) {
+    console.error('獲取請假選項失敗:', error);
+    res.status(500).json({ error: '獲取請假選項失敗' });
+  }
+});
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
