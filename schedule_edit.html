@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排課編輯</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 80px; }
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+
+        /* 頂部導航 */
+        .header { background: #fff; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10; }
+        .header i { cursor: pointer; color: #333; }
+        .header .placeholder { width: 20px; }
+
+        /* 表單區塊 */
+        .form-section { background: #fff; padding: 20px; margin-bottom: 10px; }
+        .form-label { font-size: 14px; font-weight: bold; margin-bottom: 10px; display: block; color: #333; }
+        .form-label span { color: #e03131; } /* 紅色星號 */
+
+        /* 下拉與輸入框 */
+        .form-control { width: 100%; padding: 12px 10px; border: none; border-bottom: 1px solid #eee; font-size: 15px; outline: none; background: transparent; color: #333; }
+        .form-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+        
+        .time-box { text-align: center; flex: 1; }
+        .time-box label { display: block; color: #999; font-size: 12px; margin-bottom: 5px; }
+        .time-box input { border: none; font-size: 20px; font-weight: bold; width: 100%; text-align: center; outline: none; background: transparent; }
+        .duration-badge { background: #1864f9; color: #fff; padding: 4px 12px; border-radius: 15px; font-size: 12px; }
+
+        /* 按鈕群組 (Radio 模擬) */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-check { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #666; font-size: 14px; cursor: pointer; text-align: center; transition: 0.2s; }
+        .btn-check.active { background: #1864f9; color: #fff; border-color: #1864f9; }
+
+        /* 星期選擇 (Checkbox 模擬) */
+        .week-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+        .week-item { display: flex; align-items: center; gap: 5px; font-size: 14px; color: #555; cursor: pointer; }
+        .week-item input { accent-color: #1864f9; width: 16px; height: 16px; cursor: pointer; }
+
+        /* 底部按鈕 */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #f5f7fa; padding: 15px 20px; max-width: 480px; margin: 0 auto; z-index: 10; }
+        .submit-btn { width: 100%; background: #1864f9; color: #fff; border: none; padding: 14px; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()"></i>
+        <span>排課編輯</span>
+        <div class="placeholder"></div>
+    </div>
+
+    <div class="form-section">
+        <label class="form-label"><span>*</span> 班級選擇</label>
+        <select id="classSelect" class="form-control" style="margin-bottom: 20px; font-weight: bold;">
+            <option value="">載入中...</option>
+        </select>
+
+        <div class="form-row">
+            <div class="time-box">
+                <label>上課時間</label>
+                <input type="time" id="startTime" value="08:00">
+            </div>
+            <div class="duration-badge">排課時間</div>
+            <div class="time-box">
+                <label>下課時間</label>
+                <input type="time" id="endTime" value="10:00">
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <label class="form-label"><span>*</span> 排課方式</label>
+        <div class="btn-group">
+            <div class="btn-check active">重複排課</div>
+            <div class="btn-check" style="opacity: 0.5; cursor: not-allowed;">自由排課</div>
+        </div>
+
+        <label class="form-label"><span>*</span> 排課日期區間</label>
+        <div class="form-row" style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <input type="date" id="startDate" class="form-control" style="border:none;">
+            <span style="color:#999;">至</span>
+            <input type="date" id="endDate" class="form-control" style="border:none;">
+        </div>
+
+        <label class="form-label" style="margin-top: 15px;"><span>*</span> 上課星期</label>
+        <div class="week-grid" id="weekGrid">
+            <label class="week-item"><input type="checkbox" value="1" checked> 星期一</label>
+            <label class="week-item"><input type="checkbox" value="2"> 星期二</label>
+            <label class="week-item"><input type="checkbox" value="3"> 星期三</label>
+            <label class="week-item"><input type="checkbox" value="4"> 星期四</label>
+            <label class="week-item"><input type="checkbox" value="5"> 星期五</label>
+            <label class="week-item"><input type="checkbox" value="6"> 星期六</label>
+            <label class="week-item"><input type="checkbox" value="0"> 星期日</label>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <button class="submit-btn" onclick="submitSchedule()">確定排課</button>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = '/api';
+    const token = localStorage.getItem('token');
+    
+    // 設定預設日期為今天到一個月後
+    const today = new Date();
+    const nextMonth = new Date();
+    nextMonth.setMonth(today.getMonth() + 1);
+    
+    document.getElementById('startDate').value = today.toISOString().split('T')[0];
+    document.getElementById('endDate').value = nextMonth.toISOString().split('T')[0];
+
+    if (!token) {
+        alert('請先登入！');
+        window.location.href = 'login.html';
+    } else {
+        fetchClasses();
+    }
+
+    // 取得老師的班級清單
+    async function fetchClasses() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/teacher/classes`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const classes = await res.json();
+            
+            const selectEl = document.getElementById('classSelect');
+            if (classes.length === 0) {
+                selectEl.innerHTML = '<option value="">您目前沒有負責的班級</option>';
+                return;
+            }
+            selectEl.innerHTML = classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        } catch (error) {
+            alert('無法取得班級清單');
+        }
+    }
+
+    // 提交排課
+    async function submitSchedule() {
+        const classId = document.getElementById('classSelect').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        const startDate = new Date(document.getElementById('startDate').value);
+        const endDate = new Date(document.getElementById('endDate').value);
+        
+        // 取得勾選的星期 (0=周日, 1=周一...6=周六)
+        const checkedDays = Array.from(document.querySelectorAll('#weekGrid input:checked')).map(cb => parseInt(cb.value));
+
+        if (!classId) return alert('請選擇班級！');
+        if (checkedDays.length === 0) return alert('請至少選擇一天上課星期！');
+        if (startDate > endDate) return alert('開始日期不能大於結束日期！');
+
+        // 自動計算期間內符合「星期幾」的所有日期
+        let schedules = [];
+        let currentDate = new Date(startDate);
+
+        while (currentDate <= endDate) {
+            if (checkedDays.includes(currentDate.getDay())) {
+                schedules.push({
+                    class_id: classId,
+                    class_date: currentDate.toISOString().split('T')[0],
+                    start_time: startTime,
+                    end_time: endTime,
+                    status: '待點名'
+                });
+            }
+            currentDate.setDate(currentDate.getDate() + 1); // 加一天
+        }
+
+        if (schedules.length === 0) {
+            return alert('選取的區間內沒有符合的星期！');
+        }
+
+        if(!confirm(`系統將自動生成 ${schedules.length} 堂課，確定要排課嗎？`)) return;
+
+        // 發送給後端
+        try {
+            const res = await fetch(`${API_BASE_URL}/schedules`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ schedules })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                alert('✅ ' + data.message);
+                window.location.href = 'timetable.html'; // 排課成功，跳回課表看成果
+            } else {
+                alert('❌ ' + data.error);
+            }
+        } catch (error) {
+            alert('系統發生錯誤');
+        }
+    }
+</script>
+
+</body>
+</html>
