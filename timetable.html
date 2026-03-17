@@ -12,6 +12,9 @@
 
         /* 頂部月份與切換按鈕 */
         .header-top { background: #fff; padding: 15px 20px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .month-controls { display: flex; align-items: center; gap: 15px; }
+        .month-controls i { cursor: pointer; color: #666; font-size: 16px; padding: 5px; transition: 0.2s; }
+        .month-controls i:active { color: #1864f9; transform: scale(0.9); }
         .view-toggle { cursor: pointer; color: #1864f9; font-size: 20px; padding: 5px; }
 
         /* 週曆視圖 */
@@ -21,14 +24,11 @@
         .day-item.active .date-num { background: #1864f9; color: #fff; }
         .day-item.active { color: #333; font-weight: bold; }
 
-        /* 月曆視圖 (新增) */
+        /* 月曆視圖 */
         .monthly-calendar { display: none; grid-template-columns: repeat(7, 1fr); gap: 8px; background: #fff; padding: 15px 20px 25px; border-bottom: 1px solid #eee; text-align: center; }
         .month-day-name { font-size: 13px; color: #999; margin-bottom: 5px; }
         .month-day-cell { height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 15px; cursor: pointer; color: #333; position: relative; }
-        
-        /* 💡 這裡就是你要求的「黃色底框」標記有課的日子 */
         .month-day-cell.has-class { background: #fff3bf; border: 2px solid #fcc419; font-weight: bold; color: #d9480f; }
-        
         .month-day-cell.active { background: #1864f9 !important; color: #fff !important; border: none; }
         .month-day-cell.empty { background: transparent; border: none; cursor: default; }
 
@@ -63,7 +63,11 @@
 
 <div class="container">
     <div class="header-top">
-        <span id="monthDisplay">2024年12月</span>
+        <div class="month-controls">
+            <i class="fa-solid fa-chevron-left" onclick="changeMonth(-1)"></i>
+            <span id="monthDisplay">2024年12月</span>
+            <i class="fa-solid fa-chevron-right" onclick="changeMonth(1)"></i>
+        </div>
         <i class="fa-solid fa-calendar-days view-toggle" id="viewToggleBtn" onclick="toggleViewMode()"></i>
     </div>
 
@@ -105,8 +109,8 @@
     const user = JSON.parse(localStorage.getItem('user'));
     
     let selectedDate = new Date();
-    let isMonthlyView = false; // 控制現在是看月曆還是週曆
-    let datesWithClasses = []; // 儲存當月有課的日期列表
+    let isMonthlyView = false; 
+    let datesWithClasses = []; 
 
     if (!token || !user) {
         alert('請先登入！');
@@ -118,7 +122,6 @@
         initApp();
     }
 
-    // 將日期格式化為 YYYY-MM-DD (避免時區問題)
     function formatDate(d) {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
@@ -129,7 +132,26 @@
         await fetchSchedules();
     }
 
-    // 切換月曆/週曆
+    // 🔥 新增功能：切換月份
+    async function changeMonth(offset) {
+        // 先將日期設為該月的 1 號，避免 31 號切換到沒有 31 號的月份時發生跳月錯誤
+        selectedDate.setDate(1); 
+        selectedDate.setMonth(selectedDate.getMonth() + offset);
+        
+        // 更新上方標題
+        document.getElementById('monthDisplay').textContent = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月`;
+        
+        // 根據目前的模式重新渲染畫面
+        if (isMonthlyView) {
+            await renderMonthlyCalendar();
+        } else {
+            renderWeekCalendar();
+        }
+        
+        // 載入切換後那一天的課表
+        fetchSchedules(formatDate(selectedDate));
+    }
+
     async function toggleViewMode() {
         isMonthlyView = !isMonthlyView;
         const icon = document.getElementById('viewToggleBtn');
@@ -138,20 +160,19 @@
 
         if (isMonthlyView) {
             icon.classList.remove('fa-calendar-days');
-            icon.classList.add('fa-grip-lines'); // 換成列表圖示
+            icon.classList.add('fa-grip-lines'); 
             weekEl.style.display = 'none';
             monthEl.style.display = 'grid';
             await renderMonthlyCalendar();
         } else {
             icon.classList.remove('fa-grip-lines');
-            icon.classList.add('fa-calendar-days'); // 換回日曆圖示
+            icon.classList.add('fa-calendar-days'); 
             monthEl.style.display = 'none';
             weekEl.style.display = 'flex';
             renderWeekCalendar();
         }
     }
 
-    // 渲染週曆 (原本的邏輯)
     function renderWeekCalendar() {
         const calendarEl = document.getElementById('weekCalendar');
         const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -173,14 +194,12 @@
         calendarEl.innerHTML = html;
     }
 
-    // 渲染月曆 (新增邏輯)
     async function renderMonthlyCalendar() {
         const container = document.getElementById('monthlyCalendar');
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth();
         const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-        // 呼叫新 API 取得當月有課的日子
         try {
             const res = await fetch(`${API_BASE_URL}/schedules/month?month=${monthStr}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -190,24 +209,20 @@
             console.error('無法取得月曆資料');
         }
 
-        const firstDayOfWeek = new Date(year, month, 1).getDay(); // 這個月第一天是星期幾
-        const daysInMonth = new Date(year, month + 1, 0).getDate(); // 這個月有幾天
+        const firstDayOfWeek = new Date(year, month, 1).getDay(); 
+        const daysInMonth = new Date(year, month + 1, 0).getDate(); 
         
-        // 加入星期標頭
         const days = ['日', '一', '二', '三', '四', '五', '六'];
         let html = days.map(d => `<div class="month-day-name">${d}</div>`).join('');
         
-        // 填補月初的空白格子
         for (let i = 0; i < firstDayOfWeek; i++) {
             html += '<div class="month-day-cell empty"></div>';
         }
         
-        // 產生日期格子
         const selectedDateStr = formatDate(selectedDate);
         for (let d = 1; d <= daysInMonth; d++) {
             const currentStr = `${monthStr}-${String(d).padStart(2, '0')}`;
             const isActive = currentStr === selectedDateStr ? 'active' : '';
-            // 如果這天有課，加上 has-class (黃色底框)
             const hasClass = datesWithClasses.includes(currentStr) ? 'has-class' : '';
             
             html += `<div class="month-day-cell ${hasClass} ${isActive}" onclick="changeDate('${currentStr}')">${d}</div>`;
@@ -216,23 +231,19 @@
         container.innerHTML = html;
     }
 
-    // 點擊日期的動作
     function changeDate(dateStr) {
         selectedDate = new Date(dateStr);
         document.getElementById('monthDisplay').textContent = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月`;
         
-        // 更新視圖選取狀態
         if (isMonthlyView) {
             renderMonthlyCalendar();
         } else {
             renderWeekCalendar();
         }
         
-        // 抓取當天課表
         fetchSchedules(dateStr);
     }
 
-    // 抓取當日課表
     async function fetchSchedules(dateStr = formatDate(selectedDate)) {
         const listEl = document.getElementById('scheduleList');
         listEl.innerHTML = '<p style="text-align:center; color:#999; margin-top: 20px;">載入中...</p>';
@@ -270,7 +281,6 @@
         }
     }
 
-    // 渲染按鈕
     function renderActions(item) {
         if (user.role === 'teacher') {
             return `
