@@ -613,7 +613,132 @@ app.post('/api/schedules', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '排課失敗，請稍後再試' });
   }
 });
+// ====== 請假系統 API ======
 
+// 1. 家長送出請假申請
+app.post('/api/leave', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'parent') {
+      return res.status(403).json({ error: '只有家長可以提交請假申請' });
+    }
+
+    const { studentId, scheduleId, reason } = req.body;
+    if (!studentId || !scheduleId || !reason) {
+      return res.status(400).json({ error: '請提供完整的請假資訊' });
+    }
+
+    // 檢查該堂課是否已經請過假了
+    const { data: existing, error: checkError } = await supabase
+      .from('leave_requests')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('schedule_id', scheduleId)
+      .maybeSingle();
+      
+    if (existing) {
+      return res.status(400).json({ error: '這堂課已經提交過請假申請了' });
+    }
+
+    // 寫入請假單
+    const { error } = await supabase
+      .from('leave_requests')
+      .insert({
+        parent_id: req.user.userId,
+        student_id: studentId,
+        schedule_id: scheduleId,
+        reason: reason,
+        status: '待審核'
+      });
+
+    if (error) throw error;
+    res.json({ message: '請假申請已送出，請等候老師審核！' });
+
+  } catch (error) {
+    console.error('請假申請錯誤:', error);
+    res.status(500).json({ error: '系統錯誤，請稍後再試' });
+  }
+});
+
+// 2. 取得請假單列表 (老師看自己班級的，家長看自己小孩的)
+app.get('/api/leave', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    
+    // 關聯查詢：抓出學生名字、課程名稱、上課時間
+    let query = supabase
+      .from('leave_requests')
+      .select(`
+        id, reason, status, created_at,
+        student:users!student_id ( id, username ),
+        schedule:class_schedules ( id, class_date, start_time, end_time, classes(name, teacher_id) )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (role === 'parent') {
+      // 家長只看自己送出的
+      query = query.eq('parent_id', userId);
+    } 
+    
+    const { data: requests, error } = await query;
+    if (error) throw error;
+
+    if (role === 'teacher') {
+      // 老師只看自己負責的班級的請假單
+      const teacherRequests = requests.filter(r => r.schedule.classes.teacher_id == userId);
+      return res.json(teacherRequests);
+    }
+
+    res.json(requests);
+
+  } catch (error) {
+    console.error('取得請假單錯誤:', error);
+    res.status(500).json({ error: '無法取得請假紀錄' });
+  }
+});
+
+// 3. 老師審核請假單 (批准或拒絕)
+app.put('/api/leave/:id/status', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({ error: '只有老師可以審核請假' });
+    }
+
+    const { id } = req.params;
+    const { status } = req.body; // '已批准' 或 '已拒絕'
+
+    if (!['已批准', '已拒絕'].includes(status)) {
+      return res.status(400).json({ error: '無效的審核狀態' });
+    }
+
+    // 1. 更新請假單狀態
+    const { data: request, error: updateError } = await supabase
+      .from('leave_requests')
+      .update({ status: status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // 2. 如果是「已批准」，自動把該學生的點名紀錄設為「請假」(且不扣課時 deduct_credits: 0)
+    if (status === '已批准') {
+      await supabase
+        .from('attendance')
+        .upsert({
+          schedule_id: request.schedule_id,
+          student_id: request.student_id,
+          status: '請假',
+          deduct_credits: 0 // 請假通常不扣課時，可依你們的規定調整
+        }, { onConflict: 'schedule_id, student_id' });
+    }
+
+    res.json({ message: `已成功將請假單設為：${status}` });
+
+  } catch (error) {
+    console.error('審核請假錯誤:', error);
+    res.status(500).json({ error: '審核失敗' });
+  }
+});
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
