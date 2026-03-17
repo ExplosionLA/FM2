@@ -124,22 +124,65 @@
 </div>
 
 <script>
-    // 初始化載入使用者資料 (延續你 dashboard.html 的邏輯)
+    const API_BASE_URL = '/api'; // 依照你的環境調整
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user'));
-
-    if (!token || !user) {
+    
+    // 檢查登入狀態
+    if (!token) {
         alert('請先登入！');
         window.location.href = 'login.html';
     } else {
-        document.getElementById('displayUsername').textContent = user.username;
-        // 這裡可以根據後端 API 補上家長電話與真實的課節數據
+        fetchProfileData();
     }
 
-    // 登出功能 (與 dashboard.html 保持一致)
+    async function fetchProfileData() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/profile`, {
+                method: 'GET',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (res.status === 401 || res.status === 403) {
+                alert('登入已過期，請重新登入');
+                logout();
+                return;
+            }
+
+            const data = await res.json();
+            if (res.ok) {
+                renderProfile(data);
+            } else {
+                alert(`無法載入資料: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('API 錯誤:', error);
+        }
+    }
+
+    function renderProfile(data) {
+        // 1. 渲染使用者基本資料
+        const roleName = data.user.role === 'student' ? '學生' : (data.user.role === 'teacher' ? '老師' : '家長');
+        document.getElementById('displayUsername').textContent = data.user.username;
+        document.getElementById('displayParentPhone').innerHTML = `${roleName} <span>${data.user.phone}</span>`;
+
+        // 2. 渲染統計數據 (找到對應的 DOM 並更新)
+        // 注意：這裡為了方便，我在 HTML 加上了 id，請確保你的 HTML 中 <h3> 裡面有對應的 id 
+        // 例如：<h3 id="stat-pending">...</h3>
+        const statItems = document.querySelectorAll('.stat-item h3');
+        if(statItems.length >= 3) {
+            statItems[0].innerHTML = `${data.stats.pendingClasses} <span>課節</span>`;
+            statItems[1].innerHTML = `${data.stats.completedClasses} <span>課節</span>`;
+            statItems[2].innerHTML = `${data.stats.leaveCount}/${data.stats.absenceCount} <span>次</span>`;
+        }
+    }
+
     function logout() {
         if(confirm('確定要登出嗎？')) {
-            localStorage.clear();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             window.location.href = 'login.html';
         }
     }
