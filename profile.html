@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 - 個人中心</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 共用與重置樣式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; color: #333; padding-bottom: 70px; }
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+
+        /* 頂部個人資訊區塊 */
+        .profile-header { background: linear-gradient(to bottom, #eef2ff, #f5f7fa); padding: 30px 20px 10px; display: flex; align-items: center; gap: 15px; }
+        .avatar { width: 60px; height: 60px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .user-info h2 { font-size: 20px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+        .user-info h2 i { color: #667eea; font-size: 16px; }
+        .user-info p { color: #666; font-size: 13px; background: #e0e7ff; padding: 2px 8px; border-radius: 12px; display: inline-block; }
+
+        /* 卡片共用樣式 */
+        .card { background: #fff; border-radius: 12px; margin: 15px 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.03); overflow: hidden; }
+
+        /* 數據統計區塊 */
+        .stats-grid { display: flex; justify-content: space-between; padding: 20px 15px; text-align: center; }
+        .stat-item { flex: 1; }
+        .stat-item h3 { font-size: 22px; margin-bottom: 5px; font-weight: bold; }
+        .stat-item h3 span { font-size: 12px; font-weight: normal; color: #666; }
+        .stat-item p { color: #888; font-size: 12px; }
+
+        /* 教務中心區塊 (宮格) */
+        .module-title { padding: 15px 15px 0; font-size: 15px; font-weight: bold; }
+        .grid-menu { display: grid; grid-template-columns: repeat(4, 1fr); padding: 15px; text-align: center; gap: 10px; }
+        .grid-item { display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; color: #333; font-size: 13px; }
+        .grid-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; }
+        .icon-blue { background: #4dabf7; }
+        .icon-darkblue { background: #3b5bdb; }
+        .icon-purple { background: #7950f2; }
+        .icon-lightblue { background: #3bc9db; }
+
+        /* 列表選單區塊 */
+        .list-menu { list-style: none; }
+        .list-menu li { border-bottom: 1px solid #f0f0f0; }
+        .list-menu li:last-child { border-bottom: none; }
+        .list-menu a { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; text-decoration: none; color: #333; font-size: 15px; }
+        .list-menu a i { color: #ccc; }
+
+        /* 底部導航列 */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; gap: 4px; }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { color: #667eea; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="profile-header">
+        <div class="avatar">👨‍🎓</div>
+        <div class="user-info">
+            <h2><span id="displayUsername">載入中...</span> <i class="fa-solid fa-mars"></i></h2>
+            <p>家長 <span id="displayParentPhone">未綁定</span></p>
+        </div>
+    </div>
+
+    <div class="card stats-grid">
+        <div class="stat-item">
+            <h3>53 <span>課節</span></h3>
+            <p>本月待上課</p>
+        </div>
+        <div class="stat-item">
+            <h3>2 <span>課節</span></h3>
+            <p>本月已上課</p>
+        </div>
+        <div class="stat-item">
+            <h3>0/0 <span>次</span></h3>
+            <p>請假/缺勤</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="module-title">教務中心</div>
+        <div class="grid-menu">
+            <a href="#" class="grid-item">
+                <div class="grid-icon icon-blue"><i class="fa-solid fa-file-invoice"></i></div>
+                <span>我的訂單</span>
+            </a>
+            <a href="#" class="grid-item">
+                <div class="grid-icon icon-darkblue"><i class="fa-solid fa-book-open"></i></div>
+                <span>報讀課程</span>
+            </a>
+            <a href="#" class="grid-item">
+                <div class="grid-icon icon-purple"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                <span>上課記錄</span>
+            </a>
+            <a href="#" class="grid-item">
+                <div class="grid-icon icon-lightblue"><i class="fa-solid fa-a"></i></div>
+                <span>課堂點評</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="card list-menu">
+        <li><a href="#">全部課程 <i class="fa-solid fa-chevron-right"></i></a></li>
+        <li><a href="#">請假申請 <i class="fa-solid fa-chevron-right"></i></a></li>
+        <li><a href="#">客服中心 <i class="fa-solid fa-chevron-right"></i></a></li>
+        <li><a href="#" onclick="logout()">退出登錄 <i class="fa-solid fa-chevron-right"></i></a></li>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-house"></i>
+            <span>首頁</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>課表</span>
+        </a>
+        <a href="profile.html" class="nav-item active">
+            <i class="fa-regular fa-user"></i>
+            <span>我的</span>
+        </a>
+    </div>
+</div>
+
+<script>
+    // 初始化載入使用者資料 (延續你 dashboard.html 的邏輯)
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    if (!token || !user) {
+        alert('請先登入！');
+        window.location.href = 'login.html';
+    } else {
+        document.getElementById('displayUsername').textContent = user.username;
+        // 這裡可以根據後端 API 補上家長電話與真實的課節數據
+    }
+
+    // 登出功能 (與 dashboard.html 保持一致)
+    function logout() {
+        if(confirm('確定要登出嗎？')) {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    }
+</script>
+
+</body>
+</html>
