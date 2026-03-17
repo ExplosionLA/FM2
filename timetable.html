@@ -64,9 +64,9 @@
 <div class="container">
     <div class="header-top">
         <div class="month-controls">
-            <i class="fa-solid fa-chevron-left" onclick="changeMonth(-1)"></i>
+            <i class="fa-solid fa-chevron-left" onclick="navigateCalendar(-1)"></i>
             <span id="monthDisplay">2024年12月</span>
-            <i class="fa-solid fa-chevron-right" onclick="changeMonth(1)"></i>
+            <i class="fa-solid fa-chevron-right" onclick="navigateCalendar(1)"></i>
         </div>
         <i class="fa-solid fa-calendar-days view-toggle" id="viewToggleBtn" onclick="toggleViewMode()"></i>
     </div>
@@ -132,21 +132,21 @@
         await fetchSchedules();
     }
 
-    // 🔥 新增功能：切換月份
-    async function changeMonth(offset) {
-        // 先將日期設為該月的 1 號，避免 31 號切換到沒有 31 號的月份時發生跳月錯誤
-        selectedDate.setDate(1); 
-        selectedDate.setMonth(selectedDate.getMonth() + offset);
+    // 🔥 智慧導航：自動判斷要切換「月份」還是「週次」
+    async function navigateCalendar(offset) {
+        if (isMonthlyView) {
+            // 月曆模式：切換上/下個月
+            selectedDate.setDate(1); 
+            selectedDate.setMonth(selectedDate.getMonth() + offset);
+            await renderMonthlyCalendar();
+        } else {
+            // 週曆模式：切換上/下一週 (加減 7 天)
+            selectedDate.setDate(selectedDate.getDate() + (offset * 7));
+            renderWeekCalendar();
+        }
         
         // 更新上方標題
         document.getElementById('monthDisplay').textContent = `${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月`;
-        
-        // 根據目前的模式重新渲染畫面
-        if (isMonthlyView) {
-            await renderMonthlyCalendar();
-        } else {
-            renderWeekCalendar();
-        }
         
         // 載入切換後那一天的課表
         fetchSchedules(formatDate(selectedDate));
@@ -173,16 +173,24 @@
         }
     }
 
+    // 🔥 升級：固定顯示 週日 ~ 週六
     function renderWeekCalendar() {
         const calendarEl = document.getElementById('weekCalendar');
         const days = ['日', '一', '二', '三', '四', '五', '六'];
         let html = '';
         
-        for (let i = -3; i <= 3; i++) {
-            const d = new Date(selectedDate);
+        // 找出這週的星期日 (Sunday) 作為起點
+        const startOfWeek = new Date(selectedDate);
+        startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+        
+        const selectedDateStr = formatDate(selectedDate);
+
+        // 畫出這週的 7 天
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(startOfWeek);
             d.setDate(d.getDate() + i);
-            const isSelected = i === 0;
             const dateStr = formatDate(d);
+            const isSelected = (dateStr === selectedDateStr);
             
             html += `
                 <div class="day-item ${isSelected ? 'active' : ''}" onclick="changeDate('${dateStr}')">
