@@ -563,6 +563,57 @@ app.post('/api/attendance', authenticateToken, async (req, res) => {
   }
 });
 
+// 8.8 取得老師負責的班級清單 (排課下拉選單用)
+app.get('/api/teacher/classes', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({ error: '只有老師可以取得班級清單' });
+    }
+
+    const { data: classes, error } = await supabase
+      .from('classes')
+      .select('id, name')
+      .eq('teacher_id', req.user.userId);
+
+    if (error) throw error;
+    res.json(classes);
+
+  } catch (error) {
+    console.error('取得班級清單錯誤:', error);
+    res.status(500).json({ error: '無法取得班級資料' });
+  }
+});
+
+// 8.9 批次新增排課紀錄
+app.post('/api/schedules', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({ error: '只有老師可以排課' });
+    }
+
+    // 前端會把計算好的「多天」排課陣列傳過來
+    // schedules 格式: [{ class_id, class_date, start_time, end_time, status: '待點名' }, ...]
+    const { schedules } = req.body;
+
+    if (!schedules || schedules.length === 0) {
+      return res.status(400).json({ error: '排課資料不能為空' });
+    }
+
+    // 寫入資料庫
+    const { error } = await supabase
+      .from('class_schedules')
+      .insert(schedules);
+
+    if (error) throw error;
+
+    res.json({ message: `成功新增 ${schedules.length} 堂課！` });
+
+  } catch (error) {
+    console.error('新增排課錯誤:', error);
+    res.status(500).json({ error: '排課失敗，請稍後再試' });
+  }
+});
+
 // ====== 9. 啟動伺服器 ======
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
