@@ -3,67 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>親師生互動系統 - 主頁</title>
+    <title>親師生互動系統 - 工作台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* 共用樣式 */
-        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
-        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px 30px; color: white; display: flex; justify-content: space-between; align-items: center; }
-        .container { max-width: 800px; margin: 30px auto; padding: 20px; }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .card h2 { margin-top: 0; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #f5f7fa; margin: 0; padding: 0; padding-bottom: 80px; }
+        
+        /* 統一手機版寬度，與課表/個人中心保持一致 */
+        .container { max-width: 480px; margin: 0 auto; background: #f5f7fa; min-height: 100vh; position: relative; }
+        
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 15px 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .content-area { padding: 20px; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card h2 { margin-top: 0; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
+        
         .form-group { margin-bottom: 15px; }
         .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         textarea.form-control { height: 100px; resize: vertical; }
-        .btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
-        .btn:hover { background: #5a6fd6; }
-        .btn-logout { background: rgba(255,255,255,0.2); }
-        .homework-item { border-left: 5px solid #667eea; padding: 15px; background: #f9f9f9; margin-bottom: 15px; border-radius: 5px; }
-        .homework-meta { color: #666; font-size: 0.9rem; margin-bottom: 5px; }
+        
+        .btn { padding: 10px 20px; background: #1864f9; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; width: 100%; font-weight: bold; }
+        .btn:hover { background: #1557d0; }
+        
+        .homework-item { border-left: 5px solid #1864f9; padding: 15px; background: #f9f9f9; margin-bottom: 15px; border-radius: 5px; }
+        .homework-meta { color: #666; font-size: 0.85rem; margin-bottom: 5px; }
         .homework-title { font-weight: bold; font-size: 1.1rem; color: #333; }
+        
         .role-section { display: none; }
+
+        /* 底部導航列樣式 */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); max-width: 480px; margin: 0 auto; z-index: 10; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; gap: 4px; }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { color: #1864f9; }
     </style>
 </head>
 <body>
 
-    <div class="navbar">
-        <div id="welcomeMsg">👋 你好，使用者</div>
-        <button onclick="logout()" class="btn btn-logout">登出</button>
-    </div>
-
     <div class="container">
-        <div id="studentSection" class="role-section">
+        <div class="navbar">
+            <div id="welcomeMsg" style="font-weight: bold; font-size: 18px;">👋 載入中...</div>
+        </div>
+
+        <div class="content-area">
+            <div id="studentSection" class="role-section">
+                <div class="card">
+                    <h2>📝 提交新功課</h2>
+                    <div class="form-group">
+                        <input type="text" id="hwTitle" class="form-control" placeholder="功課標題">
+                    </div>
+                    <div class="form-group">
+                        <textarea id="hwContent" class="form-control" placeholder="內容描述..."></textarea>
+                    </div>
+                    <button onclick="submitHomework()" class="btn">提交功課</button>
+                </div>
+            </div>
+
+            <div id="parentSection" class="role-section">
+                <div class="card">
+                    <h2>🔗 綁定孩子帳號</h2>
+                    <div class="form-group">
+                        <input type="text" id="childUsername" class="form-control" placeholder="請輸入孩子的帳號名稱">
+                    </div>
+                    <button onclick="bindChild()" class="btn">綁定</button>
+                </div>
+            </div>
+
             <div class="card">
-                <h2>📝 提交新功課</h2>
-                <div class="form-group">
-                    <input type="text" id="hwTitle" class="form-control" placeholder="功課標題">
+                <h2 id="listTitle">📚 功課列表</h2>
+                <div id="homeworkList">
+                    <p style="text-align:center; color:#999;">載入中...</p>
                 </div>
-                <div class="form-group">
-                    <textarea id="hwContent" class="form-control" placeholder="內容描述..."></textarea>
-                </div>
-                <button onclick="submitHomework()" class="btn">提交功課</button>
             </div>
         </div>
 
-        <div id="parentSection" class="role-section">
-            <div class="card">
-                <h2>🔗 綁定孩子帳號</h2>
-                <div class="form-group">
-                    <input type="text" id="childUsername" class="form-control" placeholder="請輸入孩子的帳號名稱">
-                </div>
-                <button onclick="bindChild()" class="btn">綁定</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2 id="listTitle">📚 功課列表</h2>
-            <div id="homeworkList">
-                <p style="text-align:center; color:#999;">載入中...</p>
-            </div>
+        <div class="bottom-nav">
+            <a href="dashboard.html" class="nav-item active">
+                <i class="fa-solid fa-house"></i>
+                <span>工作台</span>
+            </a>
+            <a href="timetable.html" class="nav-item">
+                <i class="fa-regular fa-calendar-check"></i>
+                <span>課表</span>
+            </a>
+            <a href="profile.html" class="nav-item">
+                <i class="fa-regular fa-user"></i>
+                <span>我的</span>
+            </a>
         </div>
     </div>
 
     <script>
-        const API_BASE_URL = '/api'; // 這裡定義了變數
+        const API_BASE_URL = '/api'; 
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user'));
 
@@ -92,16 +123,17 @@
 
         async function loadHomework() {
             try {
-                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/homework`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
                 const listDiv = document.getElementById('homeworkList');
+                
                 if (data.length === 0) {
-                    listDiv.innerHTML = '<p style="text-align:center; color:#999;">目前沒有功課資料</p>';
+                    listDiv.innerHTML = '<p style="text-align:center; color:#999; padding: 20px 0;">目前沒有功課資料</p>';
                     return;
                 }
+                
                 listDiv.innerHTML = data.map(hw => `
                     <div class="homework-item">
                         <div class="homework-meta">學生：<strong>${hw.student_name}</strong> | 時間：${new Date(hw.created_at).toLocaleString()}</div>
@@ -110,7 +142,7 @@
                     </div>
                 `).join('');
             } catch (err) {
-                alert('無法載入資料');
+                document.getElementById('homeworkList').innerHTML = '<p style="text-align:center; color:red;">無法載入資料</p>';
             }
         }
 
@@ -118,13 +150,14 @@
             const title = document.getElementById('hwTitle').value;
             const content = document.getElementById('hwContent').value;
             if(!title || !content) return alert('請填寫完整');
+            
             try {
-                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/homework`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ title, content })
                 });
+                
                 if(res.ok) {
                     alert('✅ 提交成功！');
                     document.getElementById('hwTitle').value = '';
@@ -139,26 +172,23 @@
         async function bindChild() {
             const childUsername = document.getElementById('childUsername').value;
             if(!childUsername) return alert('請輸入帳號');
+            
             try {
-                // ✅ 這裡修正為 API_BASE_URL
                 const res = await fetch(`${API_BASE_URL}/bind-child`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ childUsername })
                 });
                 const data = await res.json();
+                
                 if(res.ok) {
                     alert(`✅ ${data.message}`);
+                    document.getElementById('childUsername').value = '';
                     loadHomework();
                 } else {
                     alert(`❌ ${data.error}`);
                 }
             } catch(e) { alert('錯誤'); }
-        }
-
-        function logout() {
-            localStorage.clear();
-            window.location.href = 'login.html';
         }
     </script>
 </body>
