@@ -290,13 +290,12 @@ app.post('/api/bind-child', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '綁定失敗，請稍後再試' });
   }
 });
-// 8.4 取得個人中心資訊 (Profile & Stats)
+// 8.4 取得個人中心資訊 (Profile & Stats) - 真實數據版
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const { userId, role, username } = req.user;
-
+    
     // 1. 取得使用者的詳細資料
-    // 注意：目前的註冊邏輯沒有 phone 欄位，未來如果有加可以 select 'phone'
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('email, role') 
@@ -305,25 +304,69 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 
     if (userError) throw userError;
 
-    // 2. 取得課程統計數據
-    // 【提醒】目前你的資料庫還沒有「課程」與「點名出勤」的 Table。
-    // 這裡先回傳假資料以符合截圖 UI，未來有了 Table 後可以取消下方註解改成真實查詢：
-    
-    /* // 未來真實查詢範例：
-    const { count: pendingCount } = await supabase
-      .from('class_schedules')
-      .select('*', { count: 'exact', head: true })
-      .eq('student_id', userId)
-      .gte('class_date', '2024-12-01') // 本月
-      .eq('status', 'pending');
-    */
+    // 定義當前月份的第一天和最後一天 (用來計算本月數據)
+    const date = new Date();
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+    const today = date.toISOString().split('T')[0];
 
-    const stats = {
-      pendingClasses: 53,       // 本月待上課
-      completedClasses: 2,      // 本月已上課
-      leaveCount: 0,            // 請假次數
-      absenceCount: 0           // 缺勤次數
+    // 初始化統計數據
+    let stats = {
+      pendingClasses: 0,
+      completedClasses: 0,
+      leaveCount: 0,
+      absenceCount: 0
     };
+
+    // 2. 只有學生或家長需要計算上課數據 (這裡先以學生邏輯為主)
+    if (role === 'student') {
+      
+      // A. 計算「本月待上課」
+      // 邏輯：找出該學生有報名的班級，並且在排課表中日期是大於等於今天，且在月底之前的課
+      const { data: enrolledClasses } = await supabase
+        .from('student_classes')
+        .select('class_id')
+        .eq('student_id', userId);
+        
+      if (enrolledClasses && enrolledClasses.length > 0) {
+        const classIds = enrolledClasses.map(c => c.class_id);
+        
+        const { count: pendingCount } = await supabase
+          .from('class_schedules')
+          .select('*', { count: 'exact', head: true })
+          .in('class_id', classIds)
+          .gte('class_date', today)
+          .lte('class_date', lastDay)
+          .eq('status', '待點名');
+          
+        stats.pendingClasses = pendingCount || 0;
+      }
+
+      // B. 計算「本月已上課」(到課)
+      const { count: completedCount } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('student_id', userId)
+        .eq('status', '到課')
+        .gte('created_at', firstDay + 'T00:00:00Z'); // 本月
+      stats.completedClasses = completedCount || 0;
+
+      // C. 計算「請假」次數 (通常算累計或本月，這裡算累計)
+      const { count: leaveCount } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('student_id', userId)
+        .eq('status', '請假');
+      stats.leaveCount = leaveCount || 0;
+
+      // D. 計算「缺勤」次數
+      const { count: absenceCount } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('student_id', userId)
+        .eq('status', '缺勤');
+      stats.absenceCount = absenceCount || 0;
+    }
 
     // 3. 回傳整合後的資料給前端
     res.json({
@@ -332,7 +375,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
         username: username,
         role: userData.role,
         email: userData.email,
-        phone: '18888888888', // 這裡暫時寫死，未來請從 userData.phone 取得
+        phone: '18888888888', // 如果 users 表加了 phone 欄位，可改為 userData.phone
       },
       stats: stats
     });
